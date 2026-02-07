@@ -5,7 +5,11 @@ from ..models import Candle, Ticker, Order, Position
 
 
 class BybitClient(ExchangeClient):
-    """Клиент для работы с Bybit API."""
+    """
+    Клиент для работы с Bybit API.
+    
+    Тупые ручки к API — никакой бизнес-логики.
+    """
     
     def __init__(self, api_key: str, api_secret: str, testnet: bool = True):
         self._api_key = api_key
@@ -57,22 +61,32 @@ class BybitClient(ExchangeClient):
         )
         raw_klines = response.get("result", {}).get("list", [])
         
-        # Bybit возвращает от новых к старым, разворачиваем
         candles = [Candle.from_bybit(k) for k in raw_klines]
         return list(reversed(candles))
+    
+    # === Leverage ===
+    
+    def set_leverage(self, symbol: str, leverage: int) -> None:
+        """Установить плечо."""
+        self.session.set_leverage(
+            category="linear",
+            symbol=symbol,
+            buyLeverage=str(leverage),
+            sellLeverage=str(leverage),
+        )
     
     # === Trading ===
     
     def buy(self, symbol: str, qty: str) -> Order:
-        """Открыть long позицию."""
+        """Купить (long)."""
         return self._place_order(symbol, "Buy", qty)
     
     def sell(self, symbol: str, qty: str) -> Order:
-        """Открыть short позицию."""
+        """Продать (short)."""
         return self._place_order(symbol, "Sell", qty)
     
     def _place_order(self, symbol: str, side: str, qty: str) -> Order:
-        """Внутренний метод для размещения ордера."""
+        """Разместить ордер."""
         response = self.session.place_order(
             category="linear",
             symbol=symbol,
@@ -110,11 +124,14 @@ class BybitClient(ExchangeClient):
                     size=size,
                     entry_price=float(pos.get("avgPrice", 0)),
                     unrealized_pnl=float(pos.get("unrealisedPnl", 0)),
+                    leverage=int(pos.get("leverage", 1)),
+                    take_profit=float(pos.get("takeProfit", 0)) or None,
+                    stop_loss=float(pos.get("stopLoss", 0)) or None,
                 ))
         
         return positions
     
-    def close_position(self, symbol: str) -> Order | None:
+    def close_position(self, symbol: str, qty: str | None = None) -> Order | None:
         """Закрыть позицию."""
         positions = self.get_positions(symbol)
         
@@ -123,5 +140,24 @@ class BybitClient(ExchangeClient):
         
         position = positions[0]
         close_side = "Sell" if position.side == "Buy" else "Buy"
+        close_qty = qty if qty else str(position.size)
         
-        return self._place_order(symbol, close_side, str(position.size))
+        return self._place_order(symbol, close_side, close_qty)
+    
+    # === TP/SL ===
+    
+    def set_take_profit(self, symbol: str, price: float) -> None:
+        """Установить тейк-профит."""
+        self.session.set_trading_stop(
+            category="linear",
+            symbol=symbol,
+            takeProfit=str(price),
+        )
+    
+    def set_stop_loss(self, symbol: str, price: float) -> None:
+        """Установить стоп-лосс."""
+        self.session.set_trading_stop(
+            category="linear",
+            symbol=symbol,
+            stopLoss=str(price),
+        )

@@ -70,3 +70,8 @@ class Position:
     size: float
     entry_price: float
     unrealized_pnl: float
+    leverage: int = 1
+    take_profit: float | None = None
+    stop_loss: float | None = None
+
+

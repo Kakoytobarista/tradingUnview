@@ -9,7 +9,7 @@ class ExchangeClient(ABC):
     """
     Абстрактный интерфейс для работы с биржей.
     
-    Все биржевые клиенты должны реализовать эти методы.
+    Клиент — это тупые ручки к API. Никакой бизнес-логики.
     """
     
     @abstractmethod
@@ -29,16 +29,35 @@ class ExchangeClient(ABC):
         """Получить свечи."""
         pass
     
+    # === Leverage ===
+    
+    @abstractmethod
+    def set_leverage(self, symbol: str, leverage: int) -> None:
+        """Установить плечо для символа."""
+        pass
+    
     # === Trading ===
     
     @abstractmethod
     def buy(self, symbol: str, qty: str) -> "Order":
-        """Открыть long позицию (купить)."""
+        """
+        Купить (long).
+        
+        Args:
+            symbol: Торговая пара
+            qty: Количество в монетах (например "0.001" BTC)
+        """
         pass
     
     @abstractmethod
     def sell(self, symbol: str, qty: str) -> "Order":
-        """Открыть short позицию (продать)."""
+        """
+        Продать (short).
+        
+        Args:
+            symbol: Торговая пара
+            qty: Количество в монетах
+        """
         pass
     
     # === Positions ===
@@ -49,6 +68,24 @@ class ExchangeClient(ABC):
         pass
     
     @abstractmethod
-    def close_position(self, symbol: str) -> "Order | None":
-        """Закрыть позицию по символу."""
+    def close_position(self, symbol: str, qty: str | None = None) -> "Order | None":
+        """
+        Закрыть позицию.
+        
+        Args:
+            symbol: Торговая пара
+            qty: Количество (None = закрыть всю)
+        """
+        pass
+    
+    # === TP/SL ===
+    
+    @abstractmethod
+    def set_take_profit(self, symbol: str, price: float) -> None:
+        """Установить тейк-профит для позиции."""
+        pass
+    
+    @abstractmethod
+    def set_stop_loss(self, symbol: str, price: float) -> None:
+        """Установить стоп-лосс для позиции."""
         pass
